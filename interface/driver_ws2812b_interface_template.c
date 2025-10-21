@@ -1,40 +1,15 @@
-/**
- * Copyright (c) 2015 - present LibDriver All rights reserved
- * 
- * The MIT License (MIT)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE. 
- *
- * @file      driver_ws2812b_interface_template.c
- * @brief     driver ws2812b interface template source file
- * @version   1.0.0
- * @author    Shifeng Li
- * @date      2021-11-13
- *
- * <h3>history</h3>
- * <table>
- * <tr><th>Date        <th>Version  <th>Author      <th>Description
- * <tr><td>2021/11/13  <td>1.0      <td>Shifeng Li  <td>first upload
- * </table>
- */
-
 #include "driver_ws2812b_interface.h"
+#include <stdio.h>
+#include <stdint.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <linux/spi/spidev.h>
+#include <errno.h>
+#include <stdarg.h>
+
+/* SPI file descriptor */
+static int spi_fd = -1;
 
 /**
  * @brief  interface spi 10mhz bus init
@@ -45,7 +20,37 @@
  */
 uint8_t ws2812b_interface_spi_10mhz_init(void)
 {
-    return 0;
+    uint8_t mode = SPI_MODE_0;
+    uint8_t bits = 8;
+    uint32_t speed = 10000000;  // 10 MHz
+
+    // Ouvrir l'interface SPI
+    spi_fd = open("/dev/spidev0.0", O_RDWR);
+    if (spi_fd < 0) {
+        perror("Unable to open SPI device");
+        return 1;  // Échec
+    }
+
+    // Configurer le mode SPI, bits et la vitesse
+    if (ioctl(spi_fd, SPI_IOC_WR_MODE, &mode) == -1) {
+        perror("Failed to set SPI mode");
+        close(spi_fd);
+        return 1;
+    }
+
+    if (ioctl(spi_fd, SPI_IOC_WR_BITS_PER_WORD, &bits) == -1) {
+        perror("Failed to set SPI bits per word");
+        close(spi_fd);
+        return 1;
+    }
+
+    if (ioctl(spi_fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed) == -1) {
+        perror("Failed to set SPI speed");
+        close(spi_fd);
+        return 1;
+    }
+
+    return 0;  // Succès
 }
 
 /**
@@ -56,8 +61,14 @@ uint8_t ws2812b_interface_spi_10mhz_init(void)
  * @note   none
  */
 uint8_t ws2812b_interface_spi_deinit(void)
-{   
-    return 0;
+{
+    if (spi_fd >= 0) {
+        close(spi_fd);
+        spi_fd = -1;
+        return 0;  // Succès
+    } else {
+        return 1;  // Échec (le périphérique SPI n'est pas initialisé)
+    }
 }
 
 /**
@@ -71,7 +82,24 @@ uint8_t ws2812b_interface_spi_deinit(void)
  */
 uint8_t ws2812b_interface_spi_write_cmd(uint8_t *buf, uint16_t len)
 {
-    return 0;
+    if (spi_fd < 0) {
+        return 1;  // Échec (l'interface SPI n'est pas initialisée)
+    }
+
+    // Configurer la transmission SPI
+    struct spi_ioc_transfer transfer = {
+        .tx_buf = (unsigned long)buf,
+        .len = len,
+        .speed_hz = 10000000,  // 10 MHz (confirmé dans la configuration)
+        .bits_per_word = 8,
+    };
+
+    if (ioctl(spi_fd, SPI_IOC_MESSAGE(1), &transfer) < 1) {
+        perror("SPI write failed");
+        return 1;  // Échec
+    }
+
+    return 0;  // Succès
 }
 
 /**
@@ -81,7 +109,7 @@ uint8_t ws2812b_interface_spi_write_cmd(uint8_t *buf, uint16_t len)
  */
 void ws2812b_interface_delay_ms(uint32_t ms)
 {
-
+    usleep(ms * 1000);  // Conversion de ms à microsecondes
 }
 
 /**
@@ -91,5 +119,8 @@ void ws2812b_interface_delay_ms(uint32_t ms)
  */
 void ws2812b_interface_debug_print(const char *const fmt, ...)
 {
-    
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
 }
