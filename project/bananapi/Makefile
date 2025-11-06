@@ -60,7 +60,8 @@ LIB_INC_DIRS := $(shell pkg-config --cflags $(PKGS))
 
 # set the linked libraries
 LIBS := -lm \
-		-lpthread
+		-lpthread \
+		../../../rpi-software-suite/src/c/lib/hubfiles.o
 
 # add the linked libraries
 LIBS += $(shell pkg-config --libs $(PKGS))
@@ -70,7 +71,8 @@ INC_DIRS := -I ../../src/ \
 			-I ../../interface/ \
 			-I ../../example/ \
 			-I ../../test/ \
-			-I ./interface/inc/
+			-I ./interface/inc/ \
+			-I ../../../../rpi-software-suite/src/c/lib/
 
 # add the linked libraries header directories
 INC_DIRS += $(LIB_INC_DIRS)
@@ -80,6 +82,7 @@ INSTL_INCS := $(wildcard ../../src/*.h)
 
 # set all sources files
 SRCS := $(wildcard ../../src/*.c)
+#SRCS := ../../../../rpi-software-suite/src/c/lib/hubfiles.c
 
 # set the main source
 MAIN := $(SRCS) \
